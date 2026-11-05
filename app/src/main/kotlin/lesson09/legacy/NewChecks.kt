@@ -1,8 +1,6 @@
 package lesson09.dsl
 
 import lesson09.HttpResponse
-import lesson09.dsl.scopes.*
-
 
 fun newCheck01(response: HttpResponse): ValidationResult =
     validate(response) {

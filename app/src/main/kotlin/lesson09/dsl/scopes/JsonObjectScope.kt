@@ -1,8 +1,7 @@
 package lesson09.dsl.scopes
 
-import lesson09.JsonDsl
 import lesson09.dsl.DivergenceCollector
-import lesson09.dsl.ResponseScope
+import lesson09.dsl.JsonDsl
 
 @JsonDsl
 class JsonObjectScope(

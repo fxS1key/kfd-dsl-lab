@@ -1,8 +1,7 @@
 package lesson09.dsl.scopes
 
-import lesson09.JsonDsl
 import lesson09.dsl.DivergenceCollector
-import lesson09.dsl.ResponseScope
+import lesson09.dsl.JsonDsl
 import lesson09.support.json.JsonParseResult
 import lesson09.support.json.parseJsonObject
 
@@ -23,7 +22,6 @@ class BodyScope(
         }
     }
 
-    // additional function for adding to collector
     fun describe(body : String?) : String =
         if (body == null) "<null>" else "\"$body\""
 

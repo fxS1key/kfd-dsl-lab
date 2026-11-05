@@ -1,9 +1,6 @@
-package lesson09
+package lesson09.dsl
 
-import lesson09.dsl.Divergence
-import lesson09.dsl.ValidationResult
-import lesson09.dsl.describe
-import lesson09.dsl.validate
+import lesson09.HttpResponse
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -283,7 +280,7 @@ class DslBasicsTest {
 
     @Test
     fun `reused block gives independent results`() {
-        val rules: lesson09.dsl.ResponseScope.() -> Unit = {
+        val rules: ResponseScope.() -> Unit = {
             status { equalTo(200) }
             header("Content-Type") { startsWith("application/json") }
         }
@@ -300,5 +297,147 @@ class DslBasicsTest {
         // earlier results are untouched by later runs
         assertTrue(first.divergences.isEmpty())
         assertEquals(2, second.divergences.size)
+    }
+
+    @Test
+    fun `null empty blank and non-empty bodies`() {
+        val bodies = listOf(null, "", " ", "x")
+
+        val nullOrEmpty = bodies.map { b -> validate(response(body = b)) { body { nullOrEmpty() } } }
+        assertEquals(listOf(true, true, false, false), nullOrEmpty.map { it.isSuccess })
+        assertEquals(
+            Divergence("body", "null or empty body", "\" \""),
+            nullOrEmpty[2].divergences.single(),
+        )
+
+        val nonEmpty = bodies.map { b -> validate(response(body = b)) { body { nonEmpty() } } }
+        assertEquals(listOf(false, false, true, true), nonEmpty.map { it.isSuccess })
+        assertEquals(Divergence("body", "empty body", "<null>"), nonEmpty[0].divergences.single())
+        assertEquals(Divergence("body", "empty body", "\"\""), nonEmpty[1].divergences.single())
+    }
+
+    @Test
+    fun `valid json with extra fields passes`() {
+        val result = validate(response(body = """{"id":42,"extra":"x"}""")) {
+            body { json { field("id") { present() } } }
+        }
+        assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun `invalid json gives one record and skips field checks`() {
+        val result = validate(response(body = "invalid")) {
+            body {
+                json {
+                    field("id") { present() }
+                    field("name") { equalTo("x") }
+                }
+            }
+        }
+        val d = result.divergences.single()
+        assertEquals("body.json", d.path)
+        assertEquals("valid JSON object", d.expected)
+        assertTrue(d.actual.isNotBlank())
+    }
+
+    @Test
+    fun `null body gives one json record`() {
+        val result = validate(response(body = null)) {
+            body { json { field("id") { present() } } }
+        }
+        assertEquals(listOf(Divergence("body.json", "valid JSON object", "<null>")), result.divergences)
+    }
+
+    @Test
+    fun `missing field and json null are different`() {
+        val missing = validate(response(body = "{}")) {
+            body { json { field("id") { present() } } }
+        }
+        assertEquals(listOf(Divergence("body.json.id", "present", "<missing>")), missing.divergences)
+
+        val jsonNull = validate(response(body = """{"id":null}""")) {
+            body { json { field("id") { present() } } }
+        }
+        assertTrue(jsonNull.isSuccess)
+    }
+
+
+
+    @Test
+    fun `boolean and string type mismatch`() {
+        val boolResult = validate(response(body = """{"active":"true"}""")) {
+            body { json { field("active") { equalTo(true) } } }
+        }
+        assertEquals(
+            listOf(Divergence("body.json.active", "boolean true", "string \"true\"")),
+            boolResult.divergences,
+        )
+
+        val strResult = validate(response(body = """{"name":5}""")) {
+            body { json { field("name") { equalTo("Ivanov") } } }
+        }
+        assertEquals(
+            listOf(Divergence("body.json.name", "string \"Ivanov\"", "integer \"5\"")),
+            strResult.divergences,
+        )
+    }
+
+    @Test
+    fun `several checks on a missing field give several records`() {
+        val result = validate(response(body = "{}")) {
+            body {
+                json {
+                    field("id") {
+                        present()
+                        equalTo(42L)
+                    }
+                }
+            }
+        }
+        assertEquals(listOf("present", "integer 42"), result.divergences.map { it.expected })
+        assertEquals(listOf("<missing>", "<missing>"), result.divergences.map { it.actual })
+    }
+
+    @Test
+    fun `json failure keeps independent errors and order of writing`() {
+        val r = response(500, mapOf("Content-Type" to listOf("text/plain")), "invalid")
+
+        val statusFirst = validate(r) {
+            status { equalTo(200) }
+            header("Content-Type") { startsWith("application/json") }
+            body { json { field("id") { present() } } }
+        }
+        assertEquals(
+            listOf("status", "headers.Content-Type", "body.json"),
+            statusFirst.divergences.map { it.path },
+        )
+
+        val bodyFirst = validate(r) {
+            body { json { field("id") { present() } } }
+            status { equalTo(200) }
+        }
+        assertEquals(listOf("body.json", "status"), bodyFirst.divergences.map { it.path })
+    }
+
+    @Test
+    fun `repeated json checks are not deduplicated`() {
+        val sameField = validate(response(body = "{}")) {
+            body {
+                json {
+                    field("id") { present() }
+                    field("id") { present() }
+                }
+            }
+        }
+        assertEquals(2, sameField.divergences.size)
+        assertEquals(sameField.divergences[0], sameField.divergences[1])
+
+        val brokenTwice = validate(response(body = "invalid")) {
+            body {
+                json { }
+                json { }
+            }
+        }
+        assertEquals(listOf("body.json", "body.json"), brokenTwice.divergences.map { it.path })
     }
 }

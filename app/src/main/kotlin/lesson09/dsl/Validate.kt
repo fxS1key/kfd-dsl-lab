@@ -1,7 +1,6 @@
 package lesson09.dsl
 
 import lesson09.HttpResponse
-import lesson09.JsonDsl
 import lesson09.dsl.scopes.BodyScope
 import lesson09.dsl.scopes.HeaderScope
 import lesson09.dsl.scopes.StatusScope
