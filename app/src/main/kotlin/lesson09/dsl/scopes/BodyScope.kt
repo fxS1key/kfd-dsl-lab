@@ -31,8 +31,9 @@ class BodyScope(
         val source = body
         if (source == null) {
             collector.add("body.json", "valid JSON object", "<null>")
+            return
         }
-        when (val parsed = parseJsonObject(source.toString())) {
+        when (val parsed = parseJsonObject(source)) {
             is JsonParseResult.Success -> JsonObjectScope(parsed.fields, collector).block()
             is JsonParseResult.Failure ->
                 collector.add("body.json", "valid JSON object", parsed.reason)

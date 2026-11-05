@@ -11,8 +11,8 @@ class JsonFieldScope(
 ) {
     private val path = "body.json.$name"
 
-    fun checkEquals(expectedText : String, actual : Any) {
-        if (fields[name] != expectedText) {
+    fun checkEquals(expectedText : String, expectedValue : Any) {
+        if (fields[name] != expectedValue) {
             collector.add(path, expectedText, actualText())
         }
     }

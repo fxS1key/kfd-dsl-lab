@@ -7,5 +7,5 @@ class DivergenceCollector {
         items.add(Divergence(path, expected, actual))
     }
 
-    fun toResult(): ValidationResult = ValidationResult(items)
+    fun toResult(): ValidationResult = ValidationResult(items.toList())
 }
